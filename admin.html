@@ -3208,7 +3208,7 @@ footer ul li {
 
 <body>
   <div id="root"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
   <script>window.PSU_ADMIN = true;</script>
 <script>
@@ -3266,7 +3266,7 @@ const sb = (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY &
   ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
 if (sb) {
   const fatal = (msg, err) => { const e = new Error(msg + (err && err.message ? ': ' + err.message : '')); e.fatal = true; return e; };
-  window.storage = {
+  const sbApi = {
     async get(key) {
       if (key === 'comments') {
         const { data, error } = await sb.from('comments').select('*').order('created_at', { ascending: true });
@@ -3307,6 +3307,8 @@ if (sb) {
       return { keys: data.map(r => r.key).filter(k => k.indexOf(prefix || '') === 0), prefix };
     }
   };
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { fatal: true })), ms))]);
+  window.storage = Object.assign({}, sbApi, { get: (k, s) => withTimeout(sbApi.get(k, s), 10000) });
 }
 if (!window.storage) {
   (function () {
