@@ -3308,7 +3308,7 @@ if (sb) {
     }
   };
   const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { fatal: true })), ms))]);
-  window.storage = Object.assign({}, sbApi, { get: (k, s) => withTimeout(sbApi.get(k, s), 10000) });
+  window.storage = Object.assign({}, sbApi, { get: (k, s) => withTimeout(sbApi.get(k, s), 3000) });
 }
 if (!window.storage) {
   (function () {
