@@ -1573,6 +1573,18 @@ section.block {
   background: var(--red-700);
 }
 
+.poster-card.in-grid { min-width: 0; max-width: none; width: 100%; }
+.poster-img .pstatus {
+  position: absolute; top: 22px; right: 22px; z-index: 1;
+  font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px;
+  background: #e6f6ec; color: #1a7a3e;
+}
+.poster-img .pstatus.closed { background: #fde8e8; color: #b42318; }
+.list-thumb {
+  flex: none; width: 72px; height: 96px; border-radius: 10px;
+  background-size: cover; background-position: center; border: 1px solid var(--line);
+}
+.list-thumb.fallback { background: linear-gradient(135deg, var(--red-900), var(--red) 55%, var(--gold)); }
 .poster-dots {
   display: flex;
   justify-content: center;
@@ -3219,7 +3231,6 @@ const NAV_ITEMS = [
   {
     type: 'dropdown', key: 'service', label: 'บริการวิชาการ', items: [
       { tab: 'catalog', label: 'หลักสูตรทั้งหมด' },
-      { tab: 'calendar', label: 'ปฏิทินฝึกอบรม' },
     ]
   },
   { type: 'link', tab: 'news', label: 'ข่าวและกิจกรรม' },
@@ -3318,7 +3329,7 @@ ${list.length ? `<div class="poster-carousel-outer reveal" style="position:relat
       ${list.map(p => `<div class="poster-card" data-action="view-project" data-id="${p.id}">
         <div class="poster-img ${p.posterImage ? '' : 'fallback'}" ${bgStyle(p.posterImage)}>
           <span class="ptag">${p.category}</span>
-          <div class="poster-body"><h4>${p.title}</h4><div class="meta">${icon('calendar', '')}${fmtDate(p.date)}</div>
+          <div class="poster-body"><h4>${p.title}</h4><div class="meta">${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</div>
             <span class="poster-cta">ดูรายละเอียด ${icon('arrow')}</span>
           </div>
         </div>
@@ -3364,19 +3375,23 @@ function filteredProjects() {
   });
 }
 function projectCard(p) {
-  return `<div class="card">
-<div class="card-top"><span class="tag-pill">${p.category}</span><span class="status-pill ${p.status === 'เปิดรับสมัคร' ? 'status-open' : 'status-closed'}">${p.status}</span></div>
-<h3>${p.title}</h3><p class="desc">${p.desc}</p>
-<div class="card-meta"><span>${icon('calendar', '')}${fmtDate(p.date)}</span><span>${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</span></div>
-<div class="card-cta"><button class="btn btn-primary btn-sm" data-action="view-project" data-id="${p.id}">ดูรายละเอียด ${icon('arrow')}</button></div>
+  return `<div class="poster-card in-grid" data-action="view-project" data-id="${p.id}">
+  <div class="poster-img ${p.posterImage ? '' : 'fallback'}" ${bgStyle(p.posterImage)}>
+    <span class="ptag">${p.category}</span>
+    <span class="pstatus ${p.status === 'เปิดรับสมัคร' ? 'open' : 'closed'}">${p.status}</span>
+    <div class="poster-body"><h4>${p.title}</h4><div class="meta">${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</div>
+      <span class="poster-cta">ดูรายละเอียด ${icon('arrow')}</span>
+    </div>
+  </div>
 </div>`;
 }
 function projectListRow(p) {
   return `<div class="list-row">
+<div class="list-thumb ${p.posterImage ? '' : 'fallback'}" ${bgStyle(p.posterImage)}></div>
 <div class="list-row-main">
   <div class="card-top" style="margin-bottom:8px;"><span class="tag-pill">${p.category}</span><span class="status-pill ${p.status === 'เปิดรับสมัคร' ? 'status-open' : 'status-closed'}">${p.status}</span></div>
   <h3 style="font-size:15.5px; margin-bottom:6px;">${p.title}</h3>
-  <div class="card-meta" style="border-top:none; padding-top:0;"><span>${icon('calendar', '')}${fmtDate(p.date)}</span><span>${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</span><span>${icon('building', '')}${p.organization}</span></div>
+  <div class="card-meta" style="border-top:none; padding-top:0;"><span>${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</span><span>${icon('building', '')}${p.organization}</span></div>
 </div>
 <button class="btn btn-primary btn-sm" data-action="view-project" data-id="${p.id}" style="flex:none;">ดูรายละเอียด ${icon('arrow')}</button>
 </div>`;
@@ -3517,7 +3532,7 @@ function renderFooter() {
   return `<footer><div class="wrap">
 <div><div class="fbrand">${psuWordmark(28)}<strong style="font-size:14.5px;">ระบบบริการวิชาการ</strong></div>
   <p>หน่วยวิจัย นวัตกรรม และบริการวิชาการ คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยสงขลานครินทร์ — เชื่อมโยงองค์ความรู้ทางวิทยาศาสตร์สู่ชุมชนและภาคอุตสาหกรรม</p></div>
-<div><h5>เมนู</h5><ul><li>${icon('book', '')}หลักสูตร Upskill Reskill</li><li>${icon('calendar', '')}ปฏิทินฝึกอบรม</li></ul></div>
+<div><h5>เมนู</h5><ul><li>${icon('book', '')}หลักสูตร Upskill Reskill</li></ul></div>
 <div><h5>ติดต่อ</h5><ul><li>${icon('pin', '')}วิทยาเขตปัตตานี</li><li>${icon('mail', '')}research-service@sci-tech.psu.ac.th</li><li>${icon('phone', '')}073-XXX-XXX</li><li><a href="admin.html" rel="nofollow">${icon('lock', '')}เข้าสู่ระบบ</a></li></ul></div>
 </div></footer>`;
 }
@@ -3596,8 +3611,7 @@ function renderProjectDetailModal() {
   <h2>${p.title}</h2>
 </div>
 <div class="detail-body">
-  <div class="detail-stats stats-3">
-    <div class="dstat"><div class="ic">${icon('calendar')}</div><div><div class="v">${fmtDate(p.date)}</div><div class="k">วันที่จัดกิจกรรม</div></div></div>
+  <div class="detail-stats stats-3" style="grid-template-columns:repeat(2,1fr);">
     <div class="dstat"><div class="ic">${icon('building')}</div><div><div class="v" style="font-size:12.5px; font-family:'IBM Plex Sans Thai';">${p.organization}</div><div class="k">หน่วยงานผู้จัด</div></div></div>
     <div class="dstat"><div class="ic">${icon('seat')}</div><div><div class="v">${p.applied}/${p.seats}</div><div class="k">ผู้สมัคร/ที่นั่ง</div></div></div>
   </div>
@@ -3862,4 +3876,3 @@ bootApp();
 </body>
 
 </html>
-
