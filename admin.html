@@ -3763,7 +3763,6 @@ Loaded by the admin panel only. Needs Chart.js + shared.js.
 /* ============================================================ PUBLIC: DASHBOARD (ผลการดำเนินงาน) ============================================================ */
 function dashFiltered() {
   return store.data.projects.filter(p => {
-    if (p.date < state.dash.from || p.date > state.dash.to) return false;
     if (state.dash.org !== 'ทุกหน่วยงาน' && p.organization !== state.dash.org) return false;
     if (state.dash.type !== 'ทุกประเภท' && p.category !== state.dash.type) return false;
     if (state.dash.search && !p.title.toLowerCase().includes(state.dash.search.toLowerCase())) return false;
@@ -3784,8 +3783,7 @@ function renderDashboardPage() {
 
   return `
 <div class="dash-top"><div class="wrap">
-<div class="row1"><div><h1>ข้อมูลโครงการบริการวิชาการ</h1><div class="sub">${icon('calendar', '')} คณะวิทยาศาสตร์และเทคโนโลยี (ข้อมูลช่วง ${fmtDate(state.dash.from)} - ${fmtDate(state.dash.to)})</div></div>
-  <div class="daterange">จาก <input type="date" id="dash-from" value="${state.dash.from}"> ถึง <input type="date" id="dash-to" value="${state.dash.to}"></div>
+<div class="row1"><div><h1>ข้อมูลโครงการบริการวิชาการ</h1><div class="sub">${icon('building', '')} คณะวิทยาศาสตร์และเทคโนโลยี</div></div>
 </div>
 <div class="dash-filters">
   <select id="dash-org"><option ${state.dash.org === 'ทุกหน่วยงาน' ? 'selected' : ''}>ทุกหน่วยงาน</option>${store.data.orgs.map(o => `<option ${state.dash.org === o ? 'selected' : ''}>${o}</option>`).join('')}</select>
@@ -3879,8 +3877,6 @@ function renderCharts() {
 }
 
 function bindDashboardEvents() {
-  const df = document.getElementById('dash-from'); if (df) df.addEventListener('change', () => { state.dash.from = df.value; state.dash.page = 1; render(); });
-  const dt = document.getElementById('dash-to'); if (dt) dt.addEventListener('change', () => { state.dash.to = dt.value; state.dash.page = 1; render(); });
   const dorg = document.getElementById('dash-org'); if (dorg) dorg.addEventListener('change', () => { state.dash.org = dorg.value; state.dash.page = 1; render(); });
   const dtype = document.getElementById('dash-type'); if (dtype) dtype.addEventListener('change', () => { state.dash.type = dtype.value; state.dash.page = 1; render(); });
   const dsearch = document.getElementById('dash-search'); if (dsearch) dsearch.addEventListener('input', () => { state.dash.search = dsearch.value; state.dash.page = 1; renderProjTable(); });
@@ -3934,12 +3930,12 @@ function renderAdminProjects() {
 ${adminTopbar('จัดการโครงการ', 'เพิ่ม แก้ไข หรือลบโครงการวิจัย นวัตกรรม และบริการวิชาการ',
     `<button class="btn btn-primary btn-sm" data-action="open-modal" data-modal-type="project" data-modal-mode="add">${icon('plus')} เพิ่มโครงการใหม่</button>`)}
 <div class="admin-body"><div class="panel"><table>
-  <thead><tr><th>ชื่อโครงการ</th><th>ประเภท</th><th>วันที่</th><th>ผู้สมัคร/ที่นั่ง</th><th>สถานะ</th><th></th></tr></thead>
+  <thead><tr><th>ชื่อโครงการ</th><th>ประเภท</th><th>ผู้สมัคร/ที่นั่ง</th><th>สถานะ</th><th></th></tr></thead>
   <tbody>${rows.length ? rows.map(x => `
-    <tr><td style="max-width:240px;">${x.title}</td><td><span class="tag-pill">${x.category}</span></td><td class="mono">${fmtDate(x.date)}</td><td class="mono">${x.applied}/${x.seats}</td>
+    <tr><td style="max-width:240px;">${x.title}</td><td><span class="tag-pill">${x.category}</span></td><td class="mono">${x.applied}/${x.seats}</td>
     <td><span class="status-pill ${x.status === 'เปิดรับสมัคร' ? 'status-open' : 'status-closed'}">${x.status}</span></td>
     <td><div class="row-actions"><button class="icon-btn" data-action="open-modal" data-modal-type="project" data-modal-mode="edit" data-id="${x.id}">${icon('edit')}</button><button class="icon-btn danger" data-action="delete" data-type="project" data-id="${x.id}">${icon('trash')}</button></div></td></tr>`).join('')
-      : `<tr class="empty-row"><td colspan="6">ยังไม่มีโครงการ — เริ่มเพิ่มโครงการแรกของคุณ</td></tr>`}</tbody>
+      : `<tr class="empty-row"><td colspan="5">ยังไม่มีโครงการ — เริ่มเพิ่มโครงการแรกของคุณ</td></tr>`}</tbody>
 </table></div></div>`);
 }
 function renderAdminResearchers() {
@@ -4189,8 +4185,7 @@ function renderModal() {
   <div class="field"><label>หน่วยงานผู้จัด</label><select id="f-org">${store.data.orgs.length ? store.data.orgs.map(o => `<option ${item && item.organization === o ? 'selected' : ''}>${o}</option>`).join('') : '<option value="" disabled selected>ยังไม่มีหน่วยงาน — เพิ่มได้ที่เมนู "จัดการหมวดหมู่/หน่วยงาน"</option>'}</select></div>
   <div class="field"><label>รายละเอียด</label><textarea id="f-desc" rows="3" placeholder="คำอธิบายโครงการโดยย่อ">${item ? item.desc : ''}</textarea></div>
   <div class="field"><label>ช่องทางการติดต่อ (แสดงในหน้ารายละเอียด)</label><textarea id="f-contact" rows="2" placeholder="เช่น โทร. 08x-xxx-xxxx, อีเมล, Line ID">${item ? item.contact || '' : ''}</textarea></div>
-  <div class="three-col">
-    <div class="field"><label>วันที่จัดกิจกรรม</label><input id="f-date" type="date" value="${item ? item.date : '2026-09-01'}"></div>
+  <div class="two-col">
     <div class="field"><label>จำนวนที่รับ</label><input id="f-seats" type="number" min="1" value="${item ? item.seats : 50}"></div>
     <div class="field"><label>ผู้สมัครแล้ว</label><input id="f-applied" type="number" min="0" value="${item ? item.applied : 0}"></div>
   </div>
@@ -4539,7 +4534,7 @@ function bindEvents() {
       const obj = {
         id: mode === 'edit' ? id : uid('p'), title: document.getElementById('f-title').value.trim() || 'ไม่ระบุชื่อโครงการ',
         category: document.getElementById('f-category').value, status: document.getElementById('f-status').value,
-        organization: document.getElementById('f-org').value, desc: document.getElementById('f-desc').value.trim(), date: document.getElementById('f-date').value,
+        organization: document.getElementById('f-org').value, desc: document.getElementById('f-desc').value.trim(), date: (mode === 'edit' && store.data.projects.find(x => x.id === id) || {}).date || new Date().toISOString().slice(0, 10),
         contact: document.getElementById('f-contact').value.trim(),
         seats: Number(document.getElementById('f-seats').value) || 0, applied, revenue: Number(document.getElementById('f-revenue').value) || 0,
         rating: Number(document.getElementById('f-rating').value) || 4.5,
