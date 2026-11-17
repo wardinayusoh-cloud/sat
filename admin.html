@@ -5,8 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="robots" content="noindex, nofollow">
-  <title>ระบบหลังบ้าน | ระบบบริการวิชาการ คณะวิทยาศาสตร์และเทคโนโลยี ม.สงขลานครินทร์</title>
+  <title>ระบบหลังบ้าน | หลักสูตรบริการวิชาการ คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -2776,6 +2775,11 @@ footer ul li {
   flex-direction: column;
   padding: 24px 16px;
   border-right: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar .brand-text .t1 {
@@ -3105,6 +3109,11 @@ footer ul li {
     flex-direction: row;
     align-items: center;
     padding: 14px 16px;
+    height: auto;
+    overflow-y: visible;
+    z-index: 40;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
   }
 
   .sidebar .brand {
@@ -3208,9 +3217,9 @@ footer ul li {
 
 <body>
   <div id="root"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="supabase-config.js"></script>
   <script>window.PSU_ADMIN = true;</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="supabase-store.js"></script>
 <script>
     /* Chart.js v4.4.4 — bundled inline so charts always render even when the visitor's
        network blocks external CDNs (cdnjs, jsdelivr, etc.). MIT License, chartjs.org */
@@ -3259,57 +3268,6 @@ async function retryAsync(fn, attempts, delayMs) {
    why saveAll() previously crashed with "Cannot read properties of undefined (reading 'set')" and
    every save silently failed. This fallback gives the page the same get/set/delete/list interface,
    backed by the browser's localStorage, so the portal also works stand-alone. */
-/* ============================================================ SUPABASE ADAPTER ============================================================
-   เมื่อตั้งค่า supabase-config.js แล้ว ข้อมูลทั้งหมดจะเก็บบน Supabase (ทุกคนเห็นข้อมูลเดียวกัน)
-   ถ้ายังไม่ตั้งค่า จะใช้ localStorage ของเบราว์เซอร์เหมือนเดิม */
-const sb = (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY && !/YOUR_/.test(window.SUPABASE_ANON_KEY))
-  ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
-if (sb) {
-  const fatal = (msg, err) => { const e = new Error(msg + (err && err.message ? ': ' + err.message : '')); e.fatal = true; return e; };
-  const sbApi = {
-    async get(key) {
-      if (key === 'comments') {
-        const { data, error } = await sb.from('comments').select('*').order('created_at', { ascending: true });
-        if (error) throw fatal('load comments failed', error);
-        if (!data || !data.length) return null;
-        return { key, value: JSON.stringify(data.map(r => ({ id: r.id, projectId: r.project_id, name: r.name, text: r.text, date: r.date }))) };
-      }
-      const { data, error } = await sb.from('kv_store').select('value').eq('key', key).maybeSingle();
-      if (error) throw fatal('load ' + key + ' failed', error);
-      if (!data) return null;
-      return { key, value: JSON.stringify(data.value) };
-    },
-    async set(key, value) {
-      if (key === 'comments') {
-        /* ใช้โดยแอดมิน (ลบความคิดเห็น) — ซิงก์ตามรายการที่เหลือ */
-        const arr = JSON.parse(value);
-        const { data: existing, error: e1 } = await sb.from('comments').select('id');
-        if (e1) { console.error(e1); return null; }
-        const keep = new Set(arr.map(c => c.id));
-        const del = (existing || []).map(r => r.id).filter(id => !keep.has(id));
-        if (del.length) { const { error } = await sb.from('comments').delete().in('id', del); if (error) { console.error(error); return null; } }
-        const have = new Set((existing || []).map(r => r.id));
-        const add = arr.filter(c => !have.has(c.id)).map(c => ({ id: c.id, project_id: c.projectId, name: c.name, text: c.text, date: c.date }));
-        if (add.length) { const { error } = await sb.from('comments').insert(add); if (error) { console.error(error); return null; } }
-        return { key, value };
-      }
-      const { error } = await sb.from('kv_store').upsert({ key, value: JSON.parse(value), updated_at: new Date().toISOString() });
-      if (error) { console.error('storage.set failed', error); return null; }
-      return { key, value };
-    },
-    async delete(key) {
-      const { error } = await sb.from('kv_store').delete().eq('key', key);
-      return error ? null : { key, deleted: true };
-    },
-    async list(prefix) {
-      const { data, error } = await sb.from('kv_store').select('key');
-      if (error) return null;
-      return { keys: data.map(r => r.key).filter(k => k.indexOf(prefix || '') === 0), prefix };
-    }
-  };
-  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { fatal: true })), ms))]);
-  window.storage = Object.assign({}, sbApi, { get: (k, s) => withTimeout(sbApi.get(k, s), 3000) });
-}
 if (!window.storage) {
   (function () {
     const NS = 'psuPortal::';
@@ -3416,9 +3374,9 @@ const CAMPUSES = ['ปัตตานี', 'หาดใหญ่', 'ภาย�
 
 /* Default text for the home-page hero; each field can be edited from the admin panel. */
 const HERO_DEFAULTS = {
-  eyebrow: 'ระบบบริการวิชาการ',
-  title: 'ระบบบริการวิชาการ',
-  subtitle: 'คณะวิทยาศาสตร์และเทคโนโลยี · มหาวิทยาลัยสงขลานครินทร์',
+  eyebrow: 'หลักสูตรบริการวิชาการ',
+  title: 'หลักสูตรบริการวิชาการ',
+  subtitle: 'คณะวิทยาศาสตร์และเทคโนโลยี · มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี',
   lead: 'ค้นหาและสมัครอบรมหลักสูตรที่สนใจ พัฒนาทักษะและยกระดับคุณวุฒิ พร้อมวุฒิบัตรออนไลน์ จากหน่วยวิจัย นวัตกรรม และบริการวิชาการของคณะฯ',
   statCourses: 'หลักสูตรที่เปิดสอน',
   statTrainees: 'ผู้เข้าอบรม',
@@ -3505,13 +3463,7 @@ function normalizeData(out) {
 }
 const store = {
   data: null,
-  offline: false,
-  async addComment(c) {
-    if (!sb) { this.data.comments.push(c); return await this.saveKey('comments'); }
-    const { error } = await sb.from('comments').insert({ id: c.id, project_id: c.projectId, name: c.name, text: c.text, date: c.date });
-    if (error) { console.error(error); return false; }
-    this.data.comments.push(c); return true;
-  },
+  cacheNow() { try { localStorage.setItem('psuDataCache_v1', JSON.stringify(this.data)); } catch (e) { } },
   async load() {
     const out = {};
     for (const key of DATA_KEYS) {
@@ -3519,12 +3471,12 @@ const store = {
          storage API reports "not found" — not a real error), so we don't retry this call;
          we just fall through to the seeding step below, which creates it for next time. */
       try { const r = await window.storage.get(key, true); out[key] = r ? JSON.parse(r.value) : null; }
-      catch (e) { if (e && e.fatal) throw e; out[key] = null; }
+      catch (e) { out[key] = null; }
     }
     if (DATA_KEYS.some(k => !out[k])) {
       const seed = seedData();
       DATA_KEYS.forEach(k => { out[k] = out[k] || seed[k]; });
-      if (!sb) await this.saveAll(out);
+      await this.saveAll(out);
     }
     normalizeData(out);
     this.data = out; return out;
@@ -3535,10 +3487,9 @@ const store = {
     catch (e) { console.error('saveAll failed', e); return false; }
   },
   async saveKey(key) {
-    if (this.offline) return false;
     try {
       const r = await retryAsync(() => window.storage.set(key, JSON.stringify(this.data[key]), true));
-      if (r) return true;
+      if (r) { this.cacheNow(); return true; }
     } catch (e) { console.error('saveKey initial attempt failed', e); }
     /* Automatic fallback: re-compress any embedded images much harder and retry once before giving up,
        so a person never has to guess a "safe" image size — the app just makes it fit. */
@@ -3738,14 +3689,19 @@ const LOADING_HTML = `<div style="min-height:100vh; display:flex; align-items:ce
 const FATAL_HTML = `<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; font-family:'IBM Plex Sans Thai',sans-serif; color:#8f1522;">ไม่สามารถโหลดระบบได้ กรุณารีเฟรชหน้านี้อีกครั้ง</div>`;
 /* Shared boot sequence: load data -> render; fall back to in-memory sample data if storage is unavailable. */
 async function bootApp() {
-  document.getElementById('root').innerHTML = LOADING_HTML;
+  /* ไม่แสดงหน้า "กำลังโหลด": วาดหน้าเว็บทันทีด้วยข้อมูลเริ่มต้น แล้วอัปเดตเมื่อโหลดข้อมูลจริงเสร็จ */
+  const CACHE_KEY = 'psuDataCache_v1';
+  let early = null;
+  try { const c = localStorage.getItem(CACHE_KEY); if (c) early = JSON.parse(c); } catch (e) { early = null; }
+  try { if (!early) early = seedData(); normalizeData(early); store.data = early; render(); } catch (e) { }
   try {
     await store.load();
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(store.data)); } catch (e) { /* พื้นที่เต็ม: ข้ามไป */ }
     render();
   } catch (e) {
     console.error('init failed, falling back to in-memory data', e);
     try {
-      const seed = seedData(); normalizeData(seed); store.data = seed; store.offline = true;
+      const seed = seedData(); normalizeData(seed); store.data = seed;
       render();
       toast('ไม่สามารถเชื่อมต่อระบบจัดเก็บข้อมูลได้ชั่วคราว กำลังแสดงข้อมูลตัวอย่าง');
     } catch (e2) {
@@ -3763,6 +3719,7 @@ Loaded by the admin panel only. Needs Chart.js + shared.js.
 /* ============================================================ PUBLIC: DASHBOARD (ผลการดำเนินงาน) ============================================================ */
 function dashFiltered() {
   return store.data.projects.filter(p => {
+    if (p.date < state.dash.from || p.date > state.dash.to) return false;
     if (state.dash.org !== 'ทุกหน่วยงาน' && p.organization !== state.dash.org) return false;
     if (state.dash.type !== 'ทุกประเภท' && p.category !== state.dash.type) return false;
     if (state.dash.search && !p.title.toLowerCase().includes(state.dash.search.toLowerCase())) return false;
@@ -3783,7 +3740,8 @@ function renderDashboardPage() {
 
   return `
 <div class="dash-top"><div class="wrap">
-<div class="row1"><div><h1>ข้อมูลโครงการบริการวิชาการ</h1><div class="sub">${icon('building', '')} คณะวิทยาศาสตร์และเทคโนโลยี</div></div>
+<div class="row1"><div><h1>ข้อมูลโครงการบริการวิชาการ</h1><div class="sub">${icon('calendar', '')} คณะวิทยาศาสตร์และเทคโนโลยี (ข้อมูลช่วง ${fmtDate(state.dash.from)} - ${fmtDate(state.dash.to)})</div></div>
+  <div class="daterange">จาก <input type="date" id="dash-from" value="${state.dash.from}"> ถึง <input type="date" id="dash-to" value="${state.dash.to}"></div>
 </div>
 <div class="dash-filters">
   <select id="dash-org"><option ${state.dash.org === 'ทุกหน่วยงาน' ? 'selected' : ''}>ทุกหน่วยงาน</option>${store.data.orgs.map(o => `<option ${state.dash.org === o ? 'selected' : ''}>${o}</option>`).join('')}</select>
@@ -3877,6 +3835,8 @@ function renderCharts() {
 }
 
 function bindDashboardEvents() {
+  const df = document.getElementById('dash-from'); if (df) df.addEventListener('change', () => { state.dash.from = df.value; state.dash.page = 1; render(); });
+  const dt = document.getElementById('dash-to'); if (dt) dt.addEventListener('change', () => { state.dash.to = dt.value; state.dash.page = 1; render(); });
   const dorg = document.getElementById('dash-org'); if (dorg) dorg.addEventListener('change', () => { state.dash.org = dorg.value; state.dash.page = 1; render(); });
   const dtype = document.getElementById('dash-type'); if (dtype) dtype.addEventListener('change', () => { state.dash.type = dtype.value; state.dash.page = 1; render(); });
   const dsearch = document.getElementById('dash-search'); if (dsearch) dsearch.addEventListener('input', () => { state.dash.search = dsearch.value; state.dash.page = 1; renderProjTable(); });
@@ -3890,7 +3850,7 @@ admin.js — ADMIN PANEL (what staff see after logging in).
 Loaded by admin.html. Needs Chart.js, shared.js, dashboard.js.
 ============================================================ */
 Object.assign(state, {
-  authed: false, adminTab: 'dashboard', modal: null,
+  authed: false, adminTab: 'projects', modal: null,
 });
 function resetOverlays() { state.modal = null; }
 
@@ -3899,16 +3859,16 @@ function renderGate() {
   return `<div class="gate-wrap"><div class="gate-card">
 <div style="display:flex; justify-content:center; margin-bottom:14px;">${psuWordmark(40)}</div>
 <h2>เข้าสู่ระบบหลังบ้าน</h2><p>สำหรับเจ้าหน้าที่หน่วยวิจัย นวัตกรรม และบริการวิชาการ</p>
-<div class="field"><label>อีเมลผู้ดูแลระบบ</label><input id="gate-user" type="email" placeholder="you@example.com" autocomplete="username"></div>
-<div class="field"><label>รหัสผ่าน</label><input id="gate-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
-<div class="err" id="gate-err">อีเมลหรือรหัสผ่านไม่ถูกต้อง</div>
+<div class="field"><label>${window.SB && SB.enabled ? 'อีเมล' : 'ชื่อผู้ใช้'}</label><input id="gate-user" placeholder="" autocomplete="username"></div>
+<div class="field"><label>รหัสผ่าน</label><input id="gate-pass" type="password" placeholder="••••••••"></div>
+<div class="err" id="gate-err">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
 <button class="btn btn-primary" style="width:100%; justify-content:center;" data-action="do-login">เข้าสู่ระบบ ${icon('arrow')}</button>
 <div class="gate-hint"><a href="index.html">← กลับสู่หน้าเว็บไซต์หลัก</a></div>
 </div></div>`;
 }
 
 /* ============================================================ ADMIN ============================================================ */
-const ADMIN_NAV = [['dashboard', 'grid', 'แดชบอร์ด'], ['settings', 'image', 'ตั้งค่าหน้าแรก'], ['taxonomy', 'filter', 'จัดการหมวดหมู่/หน่วยงาน'], ['banners', 'megaphone', 'จัดการแบนเนอร์'], ['projects', 'book', 'จัดการโครงการ'], ['research', 'award', 'จัดการผลงานวิจัยเด่น'], ['researchers', 'users', 'จัดการนักวิจัย'], ['news', 'megaphone', 'จัดการข่าวสาร'], ['videos', 'video', 'จัดการวิดีโอ']];
+const ADMIN_NAV = [['settings', 'image', 'ตั้งค่าหน้าแรก'], ['taxonomy', 'filter', 'จัดการหมวดหมู่/หน่วยงาน'], ['banners', 'megaphone', 'จัดการแบนเนอร์'], ['projects', 'book', 'จัดการโครงการ'], ['research', 'award', 'จัดการผลงานวิจัยเด่น'], ['researchers', 'users', 'จัดการนักวิจัย'], ['news', 'megaphone', 'จัดการข่าวสาร'], ['videos', 'video', 'จัดการวิดีโอ']];
 function renderAdminShell(inner) {
   return `<div class="admin-shell">
 <div class="sidebar">
@@ -3921,21 +3881,18 @@ function renderAdminShell(inner) {
 }
 function adminTopbar(title, sub, actionBtn) { return `<div class="admin-topbar"><div><h1>${title}</h1><div class="sub">${sub}</div></div>${actionBtn || ''}</div>`; }
 
-function renderAdminDashboard() {
-  return renderAdminShell(renderDashboardPage());
-}
 function renderAdminProjects() {
   const rows = store.data.projects;
   return renderAdminShell(`
 ${adminTopbar('จัดการโครงการ', 'เพิ่ม แก้ไข หรือลบโครงการวิจัย นวัตกรรม และบริการวิชาการ',
     `<button class="btn btn-primary btn-sm" data-action="open-modal" data-modal-type="project" data-modal-mode="add">${icon('plus')} เพิ่มโครงการใหม่</button>`)}
 <div class="admin-body"><div class="panel"><table>
-  <thead><tr><th>ชื่อโครงการ</th><th>ประเภท</th><th>ผู้สมัคร/ที่นั่ง</th><th>สถานะ</th><th></th></tr></thead>
+  <thead><tr><th>ชื่อโครงการ</th><th>ประเภท</th><th>วันที่</th><th>ผู้สมัคร/ที่นั่ง</th><th>สถานะ</th><th></th></tr></thead>
   <tbody>${rows.length ? rows.map(x => `
-    <tr><td style="max-width:240px;">${x.title}</td><td><span class="tag-pill">${x.category}</span></td><td class="mono">${x.applied}/${x.seats}</td>
+    <tr><td style="max-width:240px;">${x.title}</td><td><span class="tag-pill">${x.category}</span></td><td class="mono">${fmtDate(x.date)}</td><td class="mono">${x.applied}/${x.seats}</td>
     <td><span class="status-pill ${x.status === 'เปิดรับสมัคร' ? 'status-open' : 'status-closed'}">${x.status}</span></td>
     <td><div class="row-actions"><button class="icon-btn" data-action="open-modal" data-modal-type="project" data-modal-mode="edit" data-id="${x.id}">${icon('edit')}</button><button class="icon-btn danger" data-action="delete" data-type="project" data-id="${x.id}">${icon('trash')}</button></div></td></tr>`).join('')
-      : `<tr class="empty-row"><td colspan="5">ยังไม่มีโครงการ — เริ่มเพิ่มโครงการแรกของคุณ</td></tr>`}</tbody>
+      : `<tr class="empty-row"><td colspan="6">ยังไม่มีโครงการ — เริ่มเพิ่มโครงการแรกของคุณ</td></tr>`}</tbody>
 </table></div></div>`);
 }
 function renderAdminResearchers() {
@@ -4155,7 +4112,6 @@ ${adminTopbar('จัดการหมวดหมู่/หน่วยงา�
 </div>`);
 }
 function renderAdmin() {
-  if (state.adminTab === 'dashboard') return renderAdminDashboard();
   if (state.adminTab === 'settings') return renderAdminHomeSettings();
   if (state.adminTab === 'taxonomy') return renderAdminTaxonomy();
   if (state.adminTab === 'banners') return renderAdminBanners();
@@ -4185,7 +4141,8 @@ function renderModal() {
   <div class="field"><label>หน่วยงานผู้จัด</label><select id="f-org">${store.data.orgs.length ? store.data.orgs.map(o => `<option ${item && item.organization === o ? 'selected' : ''}>${o}</option>`).join('') : '<option value="" disabled selected>ยังไม่มีหน่วยงาน — เพิ่มได้ที่เมนู "จัดการหมวดหมู่/หน่วยงาน"</option>'}</select></div>
   <div class="field"><label>รายละเอียด</label><textarea id="f-desc" rows="3" placeholder="คำอธิบายโครงการโดยย่อ">${item ? item.desc : ''}</textarea></div>
   <div class="field"><label>ช่องทางการติดต่อ (แสดงในหน้ารายละเอียด)</label><textarea id="f-contact" rows="2" placeholder="เช่น โทร. 08x-xxx-xxxx, อีเมล, Line ID">${item ? item.contact || '' : ''}</textarea></div>
-  <div class="two-col">
+  <div class="three-col">
+    <div class="field"><label>วันที่จัดกิจกรรม</label><input id="f-date" type="date" value="${item ? item.date : '2026-09-01'}"></div>
     <div class="field"><label>จำนวนที่รับ</label><input id="f-seats" type="number" min="1" value="${item ? item.seats : 50}"></div>
     <div class="field"><label>ผู้สมัครแล้ว</label><input id="f-applied" type="number" min="0" value="${item ? item.applied : 0}"></div>
   </div>
@@ -4243,27 +4200,27 @@ function render() {
   root.innerHTML = html;
   window.scrollTo({ top: 0 });
   bindEvents();
-  if (state.authed && state.adminTab === 'dashboard') { renderProjTable(); renderCharts(); }
 }
 
 function bindEvents() {
   const login = document.querySelector('[data-action="do-login"]');
   if (login) {
     const doLogin = async () => {
-      const u = document.getElementById('gate-user').value.trim(), p = document.getElementById('gate-pass').value;
-      const err = document.getElementById('gate-err');
-      if (!sb) { err.textContent = 'ยังไม่ได้ตั้งค่า Supabase (supabase-config.js)'; err.style.display = 'block'; return; }
-      const { error } = await sb.auth.signInWithPassword({ email: u, password: p });
-      if (error) { err.textContent = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'; err.style.display = 'block'; return; }
-      resetOverlays(); state.authed = true; state.adminTab = 'dashboard'; render();
+      const u = document.getElementById('gate-user').value.trim(), p = document.getElementById('gate-pass').value.trim();
+      let ok = false;
+      if (window.SB && SB.enabled) ok = await SB.signIn(u, p);
+      else ok = (u === 'admin' && p === 'admin1234');
+      if (ok) {
+        try { sessionStorage.setItem('psuAdminAuth', '1'); } catch (e) { }
+        resetOverlays(); state.authed = true; state.adminTab = 'projects'; render();
+      } else document.getElementById('gate-err').style.display = 'block';
     };
     login.addEventListener('click', doLogin);
     const gp = document.getElementById('gate-pass'); if (gp) gp.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
   }
   document.querySelectorAll('[data-admin-nav]').forEach(el => el.addEventListener('click', () => { state.adminTab = el.getAttribute('data-admin-nav'); render(); }));
-  const lo = document.querySelector('[data-action="logout"]'); if (lo) lo.addEventListener('click', async () => { try { if (sb) await sb.auth.signOut(); } catch (e) { } location.href = 'index.html'; });
+  const lo = document.querySelector('[data-action="logout"]'); if (lo) lo.addEventListener('click', async () => { try { sessionStorage.removeItem('psuAdminAuth'); } catch (e) { } if (window.SB && SB.enabled) await SB.signOut(); location.href = 'index.html'; });
 
-  bindDashboardEvents();
 
   // modal open/close/save
   document.querySelectorAll('[data-action="open-modal"]').forEach(el => el.addEventListener('click', () => { state.gal = null; state.modal = { type: el.getAttribute('data-modal-type'), mode: el.getAttribute('data-modal-mode'), id: el.getAttribute('data-id') || null }; render(); }));
@@ -4534,7 +4491,7 @@ function bindEvents() {
       const obj = {
         id: mode === 'edit' ? id : uid('p'), title: document.getElementById('f-title').value.trim() || 'ไม่ระบุชื่อโครงการ',
         category: document.getElementById('f-category').value, status: document.getElementById('f-status').value,
-        organization: document.getElementById('f-org').value, desc: document.getElementById('f-desc').value.trim(), date: (mode === 'edit' && store.data.projects.find(x => x.id === id) || {}).date || new Date().toISOString().slice(0, 10),
+        organization: document.getElementById('f-org').value, desc: document.getElementById('f-desc').value.trim(), date: document.getElementById('f-date').value,
         contact: document.getElementById('f-contact').value.trim(),
         seats: Number(document.getElementById('f-seats').value) || 0, applied, revenue: Number(document.getElementById('f-revenue').value) || 0,
         rating: Number(document.getElementById('f-rating').value) || 4.5,
@@ -4606,10 +4563,13 @@ function bindEvents() {
 function item_reg(id) { const p = store.data.projects.find(x => x.id === id); return p ? p.reg : null; }
 
 /* ============================================================ INIT ============================================================ */
-(async () => {
-  try { if (sb) { const { data } = await sb.auth.getSession(); state.authed = !!(data && data.session); sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT' && state.authed) { state.authed = false; render(); } }); } } catch (e) { }
+if (window.SB && SB.enabled) {
+  /* ใช้ Supabase Auth: ต้องมี session จริงเท่านั้นจึงถือว่าล็อกอินแล้ว */
+  SB.hasSession().then(ok => { state.authed = ok; bootApp(); });
+} else {
+  try { state.authed = sessionStorage.getItem('psuAdminAuth') === '1'; } catch (e) { }
   bootApp();
-})();
+}
 
 </script>
 </body>
