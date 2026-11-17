@@ -4,17 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบบริการวิชาการ | คณะวิทยาศาสตร์และเทคโนโลยี ม.สงขลานครินทร์</title>
-  <meta name="description" content="ระบบบริการวิชาการ คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี — โครงการบริการวิชาการ ข่าวสาร กิจกรรม และวิดีโอ">
-  <meta name="keywords" content="บริการวิชาการ, คณะวิทยาศาสตร์และเทคโนโลยี, ม.อ.ปัตตานี, มหาวิทยาลัยสงขลานครินทร์, PSU Pattani">
-  <meta name="robots" content="index, follow">
-  <meta property="og:type" content="website">
-  <meta property="og:locale" content="th_TH">
-  <meta property="og:title" content="ระบบบริการวิชาการ | คณะวิทยาศาสตร์และเทคโนโลยี ม.อ.ปัตตานี">
-  <meta property="og:description" content="โครงการบริการวิชาการ ข่าวสาร และกิจกรรมของคณะวิทยาศาสตร์และเทคโนโลยี ม.อ.ปัตตานี">
-  <!-- ใส่ meta ยืนยันความเป็นเจ้าของจาก Google Search Console ตรงนี้ เช่น
-  <meta name="google-site-verification" content="รหัสที่ได้จาก Search Console"> -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollegeOrUniversity","name":"คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี","address":{"@type":"PostalAddress","streetAddress":"181 ถ.เจริญประดิษฐ์ ต.รูสะมิแล","addressLocality":"อ.เมือง","addressRegion":"ปัตตานี","postalCode":"94000","addressCountry":"TH"}}</script>
+  <title>หลักสูตรบริการวิชาการ | คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -1573,18 +1563,6 @@ section.block {
   background: var(--red-700);
 }
 
-.poster-card.in-grid { min-width: 0; max-width: none; width: 100%; }
-.poster-img .pstatus {
-  position: absolute; top: 22px; right: 22px; z-index: 1;
-  font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px;
-  background: #e6f6ec; color: #1a7a3e;
-}
-.poster-img .pstatus.closed { background: #fde8e8; color: #b42318; }
-.list-thumb {
-  flex: none; width: 72px; height: 96px; border-radius: 10px;
-  background-size: cover; background-position: center; border: 1px solid var(--line);
-}
-.list-thumb.fallback { background: linear-gradient(135deg, var(--red-900), var(--red) 55%, var(--gold)); }
 .poster-dots {
   display: flex;
   justify-content: center;
@@ -2684,7 +2662,7 @@ footer ul li {
 <body>
   <div id="root"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="supabase-config.js"></script>
+<script src="supabase-store.js"></script>
 <script>
 /* ============================================================
 shared.js — used by BOTH the public site (index.html) and the
@@ -2713,57 +2691,6 @@ async function retryAsync(fn, attempts, delayMs) {
    why saveAll() previously crashed with "Cannot read properties of undefined (reading 'set')" and
    every save silently failed. This fallback gives the page the same get/set/delete/list interface,
    backed by the browser's localStorage, so the portal also works stand-alone. */
-/* ============================================================ SUPABASE ADAPTER ============================================================
-   เมื่อตั้งค่า supabase-config.js แล้ว ข้อมูลทั้งหมดจะเก็บบน Supabase (ทุกคนเห็นข้อมูลเดียวกัน)
-   ถ้ายังไม่ตั้งค่า จะใช้ localStorage ของเบราว์เซอร์เหมือนเดิม */
-const sb = (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY && !/YOUR_/.test(window.SUPABASE_ANON_KEY))
-  ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
-if (sb) {
-  const fatal = (msg, err) => { const e = new Error(msg + (err && err.message ? ': ' + err.message : '')); e.fatal = true; return e; };
-  const sbApi = {
-    async get(key) {
-      if (key === 'comments') {
-        const { data, error } = await sb.from('comments').select('*').order('created_at', { ascending: true });
-        if (error) throw fatal('load comments failed', error);
-        if (!data || !data.length) return null;
-        return { key, value: JSON.stringify(data.map(r => ({ id: r.id, projectId: r.project_id, name: r.name, text: r.text, date: r.date }))) };
-      }
-      const { data, error } = await sb.from('kv_store').select('value').eq('key', key).maybeSingle();
-      if (error) throw fatal('load ' + key + ' failed', error);
-      if (!data) return null;
-      return { key, value: JSON.stringify(data.value) };
-    },
-    async set(key, value) {
-      if (key === 'comments') {
-        /* ใช้โดยแอดมิน (ลบความคิดเห็น) — ซิงก์ตามรายการที่เหลือ */
-        const arr = JSON.parse(value);
-        const { data: existing, error: e1 } = await sb.from('comments').select('id');
-        if (e1) { console.error(e1); return null; }
-        const keep = new Set(arr.map(c => c.id));
-        const del = (existing || []).map(r => r.id).filter(id => !keep.has(id));
-        if (del.length) { const { error } = await sb.from('comments').delete().in('id', del); if (error) { console.error(error); return null; } }
-        const have = new Set((existing || []).map(r => r.id));
-        const add = arr.filter(c => !have.has(c.id)).map(c => ({ id: c.id, project_id: c.projectId, name: c.name, text: c.text, date: c.date }));
-        if (add.length) { const { error } = await sb.from('comments').insert(add); if (error) { console.error(error); return null; } }
-        return { key, value };
-      }
-      const { error } = await sb.from('kv_store').upsert({ key, value: JSON.parse(value), updated_at: new Date().toISOString() });
-      if (error) { console.error('storage.set failed', error); return null; }
-      return { key, value };
-    },
-    async delete(key) {
-      const { error } = await sb.from('kv_store').delete().eq('key', key);
-      return error ? null : { key, deleted: true };
-    },
-    async list(prefix) {
-      const { data, error } = await sb.from('kv_store').select('key');
-      if (error) return null;
-      return { keys: data.map(r => r.key).filter(k => k.indexOf(prefix || '') === 0), prefix };
-    }
-  };
-  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { fatal: true })), ms))]);
-  window.storage = Object.assign({}, sbApi, { get: (k, s) => withTimeout(sbApi.get(k, s), 3000) });
-}
 if (!window.storage) {
   (function () {
     const NS = 'psuPortal::';
@@ -2870,9 +2797,9 @@ const CAMPUSES = ['ปัตตานี', 'หาดใหญ่', 'ภาย�
 
 /* Default text for the home-page hero; each field can be edited from the admin panel. */
 const HERO_DEFAULTS = {
-  eyebrow: 'ระบบบริการวิชาการ',
-  title: 'ระบบบริการวิชาการ',
-  subtitle: 'คณะวิทยาศาสตร์และเทคโนโลยี · มหาวิทยาลัยสงขลานครินทร์',
+  eyebrow: 'หลักสูตรบริการวิชาการ',
+  title: 'หลักสูตรบริการวิชาการ',
+  subtitle: 'คณะวิทยาศาสตร์และเทคโนโลยี · มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี',
   lead: 'ค้นหาและสมัครอบรมหลักสูตรที่สนใจ พัฒนาทักษะและยกระดับคุณวุฒิ พร้อมวุฒิบัตรออนไลน์ จากหน่วยวิจัย นวัตกรรม และบริการวิชาการของคณะฯ',
   statCourses: 'หลักสูตรที่เปิดสอน',
   statTrainees: 'ผู้เข้าอบรม',
@@ -2959,13 +2886,7 @@ function normalizeData(out) {
 }
 const store = {
   data: null,
-  offline: false,
-  async addComment(c) {
-    if (!sb) { this.data.comments.push(c); return await this.saveKey('comments'); }
-    const { error } = await sb.from('comments').insert({ id: c.id, project_id: c.projectId, name: c.name, text: c.text, date: c.date });
-    if (error) { console.error(error); return false; }
-    this.data.comments.push(c); return true;
-  },
+  cacheNow() { try { localStorage.setItem('psuDataCache_v1', JSON.stringify(this.data)); } catch (e) { } },
   async load() {
     const out = {};
     for (const key of DATA_KEYS) {
@@ -2973,12 +2894,12 @@ const store = {
          storage API reports "not found" — not a real error), so we don't retry this call;
          we just fall through to the seeding step below, which creates it for next time. */
       try { const r = await window.storage.get(key, true); out[key] = r ? JSON.parse(r.value) : null; }
-      catch (e) { if (e && e.fatal) throw e; out[key] = null; }
+      catch (e) { out[key] = null; }
     }
     if (DATA_KEYS.some(k => !out[k])) {
       const seed = seedData();
       DATA_KEYS.forEach(k => { out[k] = out[k] || seed[k]; });
-      if (!sb) await this.saveAll(out);
+      await this.saveAll(out);
     }
     normalizeData(out);
     this.data = out; return out;
@@ -2989,10 +2910,9 @@ const store = {
     catch (e) { console.error('saveAll failed', e); return false; }
   },
   async saveKey(key) {
-    if (this.offline) return false;
     try {
       const r = await retryAsync(() => window.storage.set(key, JSON.stringify(this.data[key]), true));
-      if (r) return true;
+      if (r) { this.cacheNow(); return true; }
     } catch (e) { console.error('saveKey initial attempt failed', e); }
     /* Automatic fallback: re-compress any embedded images much harder and retry once before giving up,
        so a person never has to guess a "safe" image size — the app just makes it fit. */
@@ -3192,14 +3112,20 @@ const LOADING_HTML = `<div style="min-height:100vh; display:flex; align-items:ce
 const FATAL_HTML = `<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; font-family:'IBM Plex Sans Thai',sans-serif; color:#8f1522;">ไม่สามารถโหลดระบบได้ กรุณารีเฟรชหน้านี้อีกครั้ง</div>`;
 /* Shared boot sequence: load data -> render; fall back to in-memory sample data if storage is unavailable. */
 async function bootApp() {
-  document.getElementById('root').innerHTML = LOADING_HTML;
+  /* ไม่แสดงหน้า "กำลังโหลด": วาดหน้าเว็บทันทีด้วยข้อมูลเริ่มต้น แล้วอัปเดตเมื่อโหลดข้อมูลจริงเสร็จ */
+  const CACHE_KEY = 'psuDataCache_v1';
+  let early = null;
+  try { const c = localStorage.getItem(CACHE_KEY); if (c) early = JSON.parse(c); } catch (e) { early = null; }
+  try { if (!early) early = seedData(); normalizeData(early); store.data = early; render(); } catch (e) { }
   try {
     await store.load();
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(store.data)); } catch (e) { /* พื้นที่เต็ม: ข้ามไป */ }
+    if (window.SB && SB.enabled) SB.countView();
     render();
   } catch (e) {
     console.error('init failed, falling back to in-memory data', e);
     try {
-      const seed = seedData(); normalizeData(seed); store.data = seed; store.offline = true;
+      const seed = seedData(); normalizeData(seed); store.data = seed;
       render();
       toast('ไม่สามารถเชื่อมต่อระบบจัดเก็บข้อมูลได้ชั่วคราว กำลังแสดงข้อมูลตัวอย่าง');
     } catch (e2) {
@@ -3228,11 +3154,7 @@ function resetOverlays() { state.detailProject = null; state.detailResearch = nu
 const NAV_ITEMS = [
   { type: 'link', tab: 'home', label: 'หน้าแรก' },
   { type: 'link', tab: 'about', label: 'เกี่ยวกับคณะ' },
-  {
-    type: 'dropdown', key: 'service', label: 'บริการวิชาการ', items: [
-      { tab: 'catalog', label: 'หลักสูตรทั้งหมด' },
-    ]
-  },
+  { type: 'link', tab: 'catalog', label: 'บริการวิชาการ' },
   { type: 'link', tab: 'news', label: 'ข่าวและกิจกรรม' },
   { type: 'link', tab: 'contact', label: 'ติดต่อ' },
 ];
@@ -3253,7 +3175,7 @@ function renderNavbar() {
   return `
 <div class="navbar"><div class="wrap">
 <div class="brand">${psuWordmark(30)}
-  <div class="brand-text"><div class="t1">ระบบบริการ<span class="accent">วิชาการ</span></div><div class="t2">คณะวิทยาศาสตร์และเทคโนโลยี ม.สงขลานครินทร์</div></div>
+  <div class="brand-text"><div class="t1">หลักสูตรบริการ<span class="accent">วิชาการ</span></div><div class="t2">คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี</div></div>
 </div>
 <div class="navlinks">${NAV_ITEMS.map(navItemHtml).join('')}</div>
 <div class="nav-actions">
@@ -3329,7 +3251,7 @@ ${list.length ? `<div class="poster-carousel-outer reveal" style="position:relat
       ${list.map(p => `<div class="poster-card" data-action="view-project" data-id="${p.id}">
         <div class="poster-img ${p.posterImage ? '' : 'fallback'}" ${bgStyle(p.posterImage)}>
           <span class="ptag">${p.category}</span>
-          <div class="poster-body"><h4>${p.title}</h4><div class="meta">${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</div>
+          <div class="poster-body"><h4>${p.title}</h4><div class="meta">${icon('calendar', '')}${fmtDate(p.date)}</div>
             <span class="poster-cta">ดูรายละเอียด ${icon('arrow')}</span>
           </div>
         </div>
@@ -3375,23 +3297,19 @@ function filteredProjects() {
   });
 }
 function projectCard(p) {
-  return `<div class="poster-card in-grid" data-action="view-project" data-id="${p.id}">
-  <div class="poster-img ${p.posterImage ? '' : 'fallback'}" ${bgStyle(p.posterImage)}>
-    <span class="ptag">${p.category}</span>
-    <span class="pstatus ${p.status === 'เปิดรับสมัคร' ? 'open' : 'closed'}">${p.status}</span>
-    <div class="poster-body"><h4>${p.title}</h4><div class="meta">${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</div>
-      <span class="poster-cta">ดูรายละเอียด ${icon('arrow')}</span>
-    </div>
-  </div>
+  return `<div class="card">
+<div class="card-top"><span class="tag-pill">${p.category}</span><span class="status-pill ${p.status === 'เปิดรับสมัคร' ? 'status-open' : 'status-closed'}">${p.status}</span></div>
+<h3>${p.title}</h3><p class="desc">${p.desc}</p>
+<div class="card-meta"><span>${icon('calendar', '')}${fmtDate(p.date)}</span><span>${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</span></div>
+<div class="card-cta"><button class="btn btn-primary btn-sm" data-action="view-project" data-id="${p.id}">ดูรายละเอียด ${icon('arrow')}</button></div>
 </div>`;
 }
 function projectListRow(p) {
   return `<div class="list-row">
-<div class="list-thumb ${p.posterImage ? '' : 'fallback'}" ${bgStyle(p.posterImage)}></div>
 <div class="list-row-main">
   <div class="card-top" style="margin-bottom:8px;"><span class="tag-pill">${p.category}</span><span class="status-pill ${p.status === 'เปิดรับสมัคร' ? 'status-open' : 'status-closed'}">${p.status}</span></div>
   <h3 style="font-size:15.5px; margin-bottom:6px;">${p.title}</h3>
-  <div class="card-meta" style="border-top:none; padding-top:0;"><span>${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</span><span>${icon('building', '')}${p.organization}</span></div>
+  <div class="card-meta" style="border-top:none; padding-top:0;"><span>${icon('calendar', '')}${fmtDate(p.date)}</span><span>${icon('seat', '')}${p.applied}/${p.seats} ที่นั่ง</span><span>${icon('building', '')}${p.organization}</span></div>
 </div>
 <button class="btn btn-primary btn-sm" data-action="view-project" data-id="${p.id}" style="flex:none;">ดูรายละเอียด ${icon('arrow')}</button>
 </div>`;
@@ -3530,10 +3448,10 @@ function renderNewsListPage() {
 /* ============================================================ FOOTER ============================================================ */
 function renderFooter() {
   return `<footer><div class="wrap">
-<div><div class="fbrand">${psuWordmark(28)}<strong style="font-size:14.5px;">ระบบบริการวิชาการ</strong></div>
+<div><div class="fbrand">${psuWordmark(28)}<strong style="font-size:14.5px;">หลักสูตรบริการวิชาการ</strong></div>
   <p>หน่วยวิจัย นวัตกรรม และบริการวิชาการ คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยสงขลานครินทร์ — เชื่อมโยงองค์ความรู้ทางวิทยาศาสตร์สู่ชุมชนและภาคอุตสาหกรรม</p></div>
-<div><h5>เมนู</h5><ul><li>${icon('book', '')}หลักสูตร Upskill Reskill</li></ul></div>
-<div><h5>ติดต่อ</h5><ul><li>${icon('pin', '')}วิทยาเขตปัตตานี</li><li>${icon('mail', '')}research-service@sci-tech.psu.ac.th</li><li>${icon('phone', '')}073-XXX-XXX</li><li><a href="admin.html" rel="nofollow">${icon('lock', '')}เข้าสู่ระบบ</a></li></ul></div>
+<div><h5>เมนู</h5><ul><li>${icon('book', '')}หลักสูตร Upskill Reskill</li><li>${icon('calendar', '')}ปฏิทินฝึกอบรม</li></ul></div>
+<div><h5>ติดต่อ</h5><ul><li>${icon('pin', '')}วิทยาเขตปัตตานี</li><li>${icon('mail', '')}research-service@sci-tech.psu.ac.th</li><li>${icon('phone', '')}073-XXX-XXX</li></ul></div>
 </div></footer>`;
 }
 
@@ -3611,7 +3529,8 @@ function renderProjectDetailModal() {
   <h2>${p.title}</h2>
 </div>
 <div class="detail-body">
-  <div class="detail-stats stats-3" style="grid-template-columns:repeat(2,1fr);">
+  <div class="detail-stats stats-3">
+    <div class="dstat"><div class="ic">${icon('calendar')}</div><div><div class="v">${fmtDate(p.date)}</div><div class="k">วันที่จัดกิจกรรม</div></div></div>
     <div class="dstat"><div class="ic">${icon('building')}</div><div><div class="v" style="font-size:12.5px; font-family:'IBM Plex Sans Thai';">${p.organization}</div><div class="k">หน่วยงานผู้จัด</div></div></div>
     <div class="dstat"><div class="ic">${icon('seat')}</div><div><div class="v">${p.applied}/${p.seats}</div><div class="k">ผู้สมัคร/ที่นั่ง</div></div></div>
   </div>
@@ -3826,9 +3745,13 @@ function bindEvents() {
     const id = regBtn.getAttribute('data-id');
     const p = store.data.projects.find(x => x.id === id);
     if (!p || p.applied >= p.seats) return;
+    if (window.SB && SB.enabled) {
+      let ok = false; try { ok = await SB.registerProject(id); } catch (e) { console.error(e); }
+      if (!ok) { toast('สมัครไม่สำเร็จ หรือที่นั่งเต็มแล้ว'); return; }
+    }
     p.applied++;
     p.reg.external++;
-    await store.saveKey('projects');
+    if (!(window.SB && SB.enabled)) await store.saveKey('projects');
     render();
     toast('สมัครเข้าร่วมโครงการเรียบร้อยแล้ว');
   });
@@ -3843,7 +3766,10 @@ function bindEvents() {
     cmBtn.disabled = true; cmBtn.textContent = 'กำลังส่ง...';
     const today = new Date().toISOString().slice(0, 10);
     const obj = { id: uid('c'), projectId: pid, name: name || 'ผู้เยี่ยมชม', text, date: today };
-    const ok = await store.addComment(obj);
+    const prev = [...store.data.comments];
+    store.data.comments.push(obj);
+    let ok; if (window.SB && SB.enabled) { try { ok = await SB.addComment(obj); } catch (e) { console.error(e); ok = false; } } else ok = await store.saveKey('comments');
+    if (!ok) store.data.comments = prev;
     render();
     toast(ok ? 'ส่งความคิดเห็นเรียบร้อยแล้ว' : 'ส่งความคิดเห็นไม่สำเร็จ กรุณาลองใหม่');
   });
