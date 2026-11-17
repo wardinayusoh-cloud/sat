@@ -4213,7 +4213,11 @@ function bindEvents() {
       if (ok) {
         try { sessionStorage.setItem('psuAdminAuth', '1'); } catch (e) { }
         resetOverlays(); state.authed = true; state.adminTab = 'projects'; render();
-      } else document.getElementById('gate-err').style.display = 'block';
+      } else {
+        const er = document.getElementById('gate-err');
+        if (window.SB && SB.enabled && SB.lastError) er.textContent = SB.lastError === 'Invalid login credentials' ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : SB.lastError === 'Email not confirmed' ? 'อีเมลนี้ยังไม่ได้ยืนยัน (ไปที่ Supabase > Users แล้วกดยืนยันผู้ใช้)' : SB.lastError;
+        er.style.display = 'block';
+      }
     };
     login.addEventListener('click', doLogin);
     const gp = document.getElementById('gate-pass'); if (gp) gp.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
