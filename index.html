@@ -2662,7 +2662,129 @@ footer ul li {
 <body>
   <div id="root"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="supabase-store.js"></script>
+<script>
+/* ============================================================================
+   supabase-store.js — ต่อเว็บเข้ากับ Supabase (โหลดก่อนสคริปต์หลักทั้ง index.html และ admin.html)
+   1) ใส่ URL และ anon key ด้านล่าง  2) รัน supabase/schema.sql  3) สร้างผู้ใช้แอดมินใน Supabase Auth
+   ถ้ายังไม่ใส่ค่า ระบบจะใช้ localStorage ในเบราว์เซอร์ตามเดิม
+   ============================================================================ */
+window.SUPABASE_CONFIG = {
+  url: 'https://mbvxskesiqggqpywuufn.supabase.co',      // ใส่ Project URL เช่น https://xxxxxxxx.supabase.co
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1idnhza2VzaXFnZ3FweXd1dWZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4Mzg0MjksImV4cCI6MjEwODQxNDQyOX0.OB3kls3DjYef1HhJq0i3QUQlHVcBWTpaDC74tGH9KQ0'   // ใส่ anon public key (ห้ามใช้ service_role key ในหน้าเว็บ)
+};
+(function () {
+  const cfg = window.SUPABASE_CONFIG;
+  const SB = window.SB = { enabled: false, client: null };
+  if (!cfg.url || !cfg.anonKey || !window.supabase) {
+    window.storage = { async get() { return null; }, async set() { return null; }, async delete() { return null; }, async list() { return { keys: [] }; } };
+    console.warn('[Supabase] ยังไม่เชื่อมต่อ —', !cfg.url || !cfg.anonKey ? 'ยังไม่ได้ใส่ url / anonKey ที่ต้นไฟล์ supabase-store.js' : 'โหลดไลบรารี supabase-js ไม่สำเร็จ (ตรวจอินเทอร์เน็ต)');
+    return;
+  }
+  const sb = SB.client = window.supabase.createClient(cfg.url, cfg.anonKey);
+  SB.enabled = true;
+
+  const clean = o => o; // hook ไว้ปรับแต่งภายหลัง
+  const sort = (rows, f) => rows.map((r, i) => ({ ...f(r), sort_order: i }));
+
+  /* key ของแอป  ->  { table, order, fromRow(แถว->ออบเจ็กต์แอป), toRow(ออบเจ็กต์แอป->แถว), pk } */
+  const MAP = {
+    projects: {
+      table: 'projects', pk: 'id', order: ['sort_order'],
+      fromRow: r => ({ id: r.id, title: r.title, category: r.category, desc: r.description, date: r.date, seats: r.seats, applied: r.applied,
+        status: r.status, campus: r.campus, organization: r.organization, revenue: Number(r.revenue), rating: Number(r.rating),
+        posterImage: r.poster_image, contact: r.contact, reg: { student: r.reg_student, staff: r.reg_staff, external: r.reg_external } }),
+      toRow: p => ({ id: p.id, title: p.title, category: p.category, description: p.desc, date: p.date, seats: p.seats, applied: p.applied,
+        status: p.status, campus: p.campus, organization: p.organization, revenue: p.revenue, rating: p.rating, poster_image: p.posterImage,
+        contact: p.contact, reg_student: p.reg.student, reg_staff: p.reg.staff, reg_external: p.reg.external })
+    },
+    researchers: { table: 'researchers', pk: 'id', order: ['sort_order'],
+      fromRow: r => ({ id: r.id, name: r.name, pos: r.pos, tags: r.tags || [] }),
+      toRow: r => ({ id: r.id, name: r.name, pos: r.pos, tags: r.tags || [] }) },
+    news: { table: 'news', pk: 'id', order: ['sort_order'],
+      fromRow: r => ({ id: r.id, title: r.title, date: r.date, content: r.content, images: r.images || [], imageUrl: (r.images || [])[0] || '' }),
+      toRow: n => ({ id: n.id, title: n.title, date: n.date, content: n.content, images: n.images || [] }) },
+    banners: { table: 'banners', pk: 'id', order: ['sort_order'],
+      fromRow: r => ({ id: r.id, tag: r.tag, title: r.title, desc: r.description, linkText: r.link_text, imageUrl: r.image_url }),
+      toRow: b => ({ id: b.id, tag: b.tag, title: b.title, description: b.desc, link_text: b.linkText, image_url: b.imageUrl }) },
+    research: { table: 'research_highlights', pk: 'id', order: ['sort_order'],
+      fromRow: r => ({ id: r.id, name: r.name, field: r.field, photoUrl: r.photo_url, desc: r.description }),
+      toRow: r => ({ id: r.id, name: r.name, field: r.field, photo_url: r.photoUrl, description: r.desc }) },
+    videos: { table: 'videos', pk: 'id', order: ['sort_order'],
+      fromRow: r => ({ id: r.id, title: r.title, url: r.url, thumbnail: r.thumbnail }),
+      toRow: v => ({ id: v.id, title: v.title, url: v.url, thumbnail: v.thumbnail }) },
+    comments: { table: 'comments', pk: 'id', order: ['created_at'], noSort: true,
+      fromRow: r => ({ id: r.id, projectId: r.project_id, name: r.name, text: r.text, date: r.date }),
+      toRow: c => ({ id: c.id, project_id: c.projectId, name: c.name, text: c.text, date: c.date }) },
+    participants: { table: 'participants', pk: 'id', order: ['id'], noSort: true, replaceAll: true,
+      fromRow: r => ({ name: r.name, count: r.count }), toRow: p => ({ name: p.name, count: Number(p.count) || 0 }) },
+    orgs: { table: 'organizations', pk: 'name', order: ['sort_order'], strings: true },
+    categories: { table: 'categories', pk: 'name', order: ['sort_order'], strings: true }
+  };
+
+  async function readKey(key) {
+    if (key === 'meta') {
+      const { data, error } = await sb.from('site_settings').select('*').eq('id', 1).maybeSingle();
+      if (error) throw error;
+      if (!data) return {};
+      return { views: Number(data.views), heroImage: data.hero_image, aboutHeroImage: data.about_hero_image, logo: data.logo,
+               hero: data.hero, pages: data.pages, social: data.social };
+    }
+    const m = MAP[key]; let q = sb.from(m.table).select('*');
+    m.order.forEach(c => { q = q.order(c, { ascending: true }); });
+    const { data, error } = await q; if (error) throw error;
+    return m.strings ? data.map(r => r.name) : data.map(m.fromRow);
+  }
+
+  async function writeKey(key, value) {
+    if (key === 'meta') {
+      const { error } = await sb.from('site_settings').upsert({ id: 1, views: value.views || 0, hero_image: value.heroImage || '',
+        about_hero_image: value.aboutHeroImage || '', logo: value.logo || '', hero: value.hero || {}, pages: value.pages || {},
+        social: value.social || {}, updated_at: new Date().toISOString() });
+      if (error) throw error; return;
+    }
+    const m = MAP[key];
+    let rows = m.strings ? value.map((n, i) => ({ name: n, sort_order: i }))
+             : m.noSort ? value.map(m.toRow) : sort(value, m.toRow);
+    if (m.replaceAll) {                      // ตารางที่ไม่มี id จากแอป: ลบแล้วใส่ใหม่
+      const del = await sb.from(m.table).delete().gte('id', 0); if (del.error) throw del.error;
+      if (rows.length) { const ins = await sb.from(m.table).insert(rows); if (ins.error) throw ins.error; }
+      return;
+    }
+    if (rows.length) { const up = await sb.from(m.table).upsert(rows, { onConflict: m.pk }); if (up.error) throw up.error; }
+    // ลบแถวที่ไม่อยู่ในรายการแล้ว
+    const keep = rows.map(r => r[m.pk]);
+    const { data: existing, error: e1 } = await sb.from(m.table).select(m.pk); if (e1) throw e1;
+    const gone = existing.map(r => r[m.pk]).filter(k => !keep.includes(k));
+    if (gone.length) { const d = await sb.from(m.table).delete().in(m.pk, gone); if (d.error) throw d.error; }
+  }
+
+  /* แทน window.storage — แอปเดิมเรียก get/set ด้วย key เดิมโดยไม่ต้องแก้ */
+  window.storage = {
+    async get(key, shared) {
+      if (!(key in MAP) && key !== 'meta') return null;
+      return { key, value: JSON.stringify(await readKey(key)), shared: !!shared };
+    },
+    async set(key, value, shared) {
+      if (!(key in MAP) && key !== 'meta') return null;
+      await writeKey(key, JSON.parse(value));
+      return { key, value, shared: !!shared };
+    },
+    async delete(key) { return { key, deleted: false }; },
+    async list() { return { keys: Object.keys(MAP).concat('meta') }; }
+  };
+
+  /* ---- สำหรับผู้เยี่ยมชม (ไม่ต้องล็อกอิน) ---- */
+  SB.registerProject = async id => { const { data, error } = await sb.rpc('register_project', { p_id: id }); if (error) throw error; return !!data; };
+  SB.addComment = async c => { const { error } = await sb.from('comments').insert({ id: c.id, project_id: c.projectId, name: c.name, text: c.text, date: c.date }); if (error) throw error; return true; };
+  SB.countView = async () => { try { if (sessionStorage.getItem('psuViewed')) return; sessionStorage.setItem('psuViewed', '1'); await sb.rpc('increment_views'); } catch (e) { } };
+
+  /* ---- ล็อกอินแอดมิน (Supabase Auth) ---- */
+  SB.signIn = async (email, password) => { const { error } = await sb.auth.signInWithPassword({ email, password }); SB.lastError = error ? error.message : ''; return !error; };
+  SB.signOut = async () => { await sb.auth.signOut(); };
+  SB.hasSession = async () => { const { data } = await sb.auth.getSession(); return !!(data && data.session); };
+})();
+
+</script>
 <script>
 /* ============================================================
 shared.js — used by BOTH the public site (index.html) and the
@@ -2691,45 +2813,6 @@ async function retryAsync(fn, attempts, delayMs) {
    why saveAll() previously crashed with "Cannot read properties of undefined (reading 'set')" and
    every save silently failed. This fallback gives the page the same get/set/delete/list interface,
    backed by the browser's localStorage, so the portal also works stand-alone. */
-if (!window.storage) {
-  (function () {
-    const NS = 'psuPortal::';
-    function keyFor(key, shared) { return NS + (shared ? 'shared::' : 'private::') + key; }
-    window.storage = {
-      async get(key, shared) {
-        try {
-          const raw = localStorage.getItem(keyFor(key, shared));
-          if (raw === null) return null;
-          return { key, value: raw, shared: !!shared };
-        } catch (e) { console.error('storage.get failed', e); return null; }
-      },
-      async set(key, value, shared) {
-        try {
-          localStorage.setItem(keyFor(key, shared), value);
-          return { key, value, shared: !!shared };
-        } catch (e) { console.error('storage.set failed', e); return null; }
-      },
-      async delete(key, shared) {
-        try {
-          localStorage.removeItem(keyFor(key, shared));
-          return { key, deleted: true, shared: !!shared };
-        } catch (e) { console.error('storage.delete failed', e); return null; }
-      },
-      async list(prefix, shared) {
-        try {
-          const base = NS + (shared ? 'shared::' : 'private::');
-          const full = base + (prefix || '');
-          const keys = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const lk = localStorage.key(i);
-            if (lk && lk.indexOf(full) === 0) keys.push(lk.slice(base.length));
-          }
-          return { keys, prefix, shared: !!shared };
-        } catch (e) { console.error('storage.list failed', e); return null; }
-      }
-    };
-  })();
-}
 /* ============================================================ ICONS ============================================================ */
 const ICONS = {
   search: `<path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="m21 21-4.3-4.3"/>`,
